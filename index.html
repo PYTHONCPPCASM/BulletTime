@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>crisp-game-lib</title>
+    <meta
+      name="viewport"
+      content="width=device-width, height=device-height,
+    user-scalable=no, initial-scale=1, maximum-scale=1"
+    />
+    <script src="https://unpkg.com/sounds-some-sounds@1.0.5/build/index.js"></script>
+    <script src="https://unpkg.com/gif-capture-canvas@1.1.0/build/index.js"></script>
+    <script src="https://unpkg.com/terser@4.6.11/dist/bundle.min.js"></script>
+    <script src="https://unpkg.com/pixi.js@5.3.0/dist/pixi.min.js"></script>
+    <script src="https://unpkg.com/pixi-filters@3.1.1/dist/pixi-filters.js"></script>
+    <script>
+      var module = {};
+    </script>
+    <script src="https://unpkg.com/lodash.clonedeep@4.5.0/index.js"></script>
+    <script src="https://abagames.github.io/crisp-game-lib/bundle.js"></script>
+
+<script>
+title = "BULLET TIME";
+
+description = `
+  HOLD TO ACTIVATE BULLET TIME USING ENERGY
+`;
+
+characters = [
+`
+l cc l
+lccccl
+  cc  
+l cc l
+lccccl
+l ll l
+`,
+`
+rr  rr
+rrrrrr
+rrpprr
+rrrrrr
+  rr
+  rr
+`,`
+y  y
+yyyyyy
+ y  y
+yyyyyy
+ y  y
+`,`
+  ll
+ llll
+ llll
+llllll
+llllll
+ llll  
+`
+];
+
+  const G = {
+    WIDTH: 100,
+    HEIGHT: 150,
+
+    STAR_SPEED_MIN: 0.5,
+    STAR_SPEED_MAX: 1.0,
+
+    PLAYER_FIRE_RATE: 4,
+    PLAYER_GUN_OFFSET: 3,
+    FBULLET_SPEED: 5,
+    
+    ENEMY_MIN_BASE_SPEED: 1.0,
+    ENEMY_MAX_BASE_SPEED: 2.0,
+    ENEMY_FIRE_RATE: 45,
+
+    EBULLET_SPEED: 2.0,
+    EBULLET_ROTATION_SPD: 0.1,
+
+    SPINNING : 10
+
+  };
+
+options = {
+  viewSize: {x: G.WIDTH, y: G.HEIGHT},
+  seed : 45,
+  isPlayingBgm: true,
+  isReplayEnabled: true
+};
+
+let player;
+let bar1;
+let x = 0;
+let y = 0;
+let yellow;
+let count = 1;
+let bar2;
+let SPEED = 1;
+let timer = 0;
+let energy = 10;
+let angle = 0;
+let missed = 0;
+
+player = {
+  pos: vec(G.WIDTH / 2, G.HEIGHT / 2)
+};
+
+bar1 = {
+  pos: vec(20, 20)
+}
+
+bar2 = {
+  pos: vec(20, 20)
+}
+
+yellow = {
+  pos: vec(0, 0)
+}
+
+bar1 = [];
+bar2 = [];
+function update() {
+  if (!ticks) {
+    SPEED = 1;
+    energy = 10;
+    missed = 0;
+  }
+
+  player.pos = vec(input.pos.x, input.pos.y);
+  player.pos.clamp(0, G.WIDTH, 0, G.HEIGHT);
+
+  char("a", player.pos);
+  y++;
+
+
+  if(bar1.length === 0){
+    for(let i = 0; i < 1; i++){
+      const posX = rnd(0, 100);
+      bar1.push({pos: vec(posX)});
+    }
+  }
+
+  if(bar2.length === 0){
+    let x = 0;
+    for(let i = 0; i < 10; i++){
+      x = x + 10;
+      const posX = x;
+      const posY = rnd(0, 50);
+      bar2.push({pos: vec(posX, posY)});
+    }
+  }
+
+  remove(bar1, (b) =>{
+    color("green");
+    box(b.pos, 3);
+    b.pos.y += SPEED;
+
+    if(char("a", player.pos).isColliding.rect.green === true){
+      energy++;
+      play("jump");
+    }
+
+    if(b.pos.y > G.HEIGHT){
+      missed += 1;
+      play("powerUp");
+    }
+
+    return b.pos.y > G.HEIGHT || (char("a", player.pos).isColliding.rect.green);
+  });
+
+
+  
+  remove(bar2, (b) => {
+
+    color("black");
+    box(b.pos, 1);
+    b.pos.y += SPEED;
+    //draw bar
+    if(input.isPressed){
+      angle += 0.001;
+    } else {
+      angle += 0.006;
+    }
+    color("yellow");
+    particle(
+            b.pos.x, // x coordinate
+            b.pos.y, // y coordinatebar1
+
+
+
+            4, // The number of particles
+            1, // The speed of the particles
+            angle+10, // The emitting angle
+            PI/4  // The emitting width
+        );
+    color("black");
+    bar(b.pos.x, b.pos.y, 10, 3, angle);
+
+    if(char("a", player.pos).isColliding.rect.black === true){
+      play("select");
+      end();
+    }
+
+    return b.pos.y > G.HEIGHT;
+  });
+
+  energy += 0.05;  //as long as the car is going, energy increases
+
+  if(energy <= 10){
+    text(Math.round(energy).toString(), 50,75);  
+  } else {
+    color("red");
+    particle(
+      player.pos.x, // x coordinate
+      player.pos.y, // y coordinate
+      4, // The number of particles
+      1, // The speed of the particles
+      PI/2, // The emitting angle
+      PI/4  // The emitting width
+    );
+    color("black");
+    text(Math.round(energy).toString(), 20,20);
+  }
+  if(missed >= 5){
+    player("lose");
+    end();
+  }
+  text("missed\ngreen: " + missed.toString(), 50, 20);
+
+  if(energy < 0){
+    play("explosion");
+    text("energy used up".toString(), 20, 30);
+    end();
+  }
+  
+
+  if(input.isJustPressed){
+    count += 0.1;
+  }
+  if(input.isJustPressed){
+    SPEED *= 0.4;
+    angle *= 0.4;
+  }
+
+  if(input.isPressed){
+    energy -= difficulty / 10;
+  }
+
+  if(input.isJustReleased){
+    SPEED = difficulty;
+  }
+
+  
+
+}
+
+
+function abs(a){
+  if(a < 0){
+    a *= -1;
+  } else {
+    return a;
+  }
+  return a;
+}
+
+addEventListener("load", onLoad);
+</script>
+
+  </head>
+  <body style="background: #ddd"></body>
+</html>
